@@ -53,6 +53,11 @@ async function republishIfNeeded(mode: string, scope: string, cursor: string | n
 
 /** Exécute une tranche de balayage (le corps de l'AsyncEvent). */
 export async function consume(event: ConsumeContext): Promise<void> {
+  // Propriété du balayage : les déclencheurs planifiés filtrent déjà par
+  // installation (`runtime/installation.ts`, mesuré le 14 novembre 2026) — une
+  // tranche n'est donc poussée que par l'installation Confluence du site. Le
+  // consumer n'est pas filtré ici : un événement reçu serait de toute façon
+  // traité avec la clé HMAC de cette installation, et le curseur est conservé.
   const payload = eventBody(event);
   const scope = str(payload, 'scope', 'site');
   const modeRaw = str(payload, 'mode', 'incremental');
