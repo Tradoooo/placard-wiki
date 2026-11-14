@@ -15,12 +15,22 @@
  */
 
 import { getServiceContext } from './runtime/context';
+import { installationProfil, journalBalayage } from './runtime/installation';
 import { pushSweepEvent } from './runtime/queue';
 import { runSweep } from './services/index';
 import type { ServiceContext, SweepResult } from './services/ports';
 
 /** Borne d'une tranche incrémentale directe (le déclencheur tient en 900 s). */
 const INCREMENTAL_SLICE = 200;
+
+/**
+ * Cette installation est-elle propriétaire du balayage ? (non ⇒ rien n'est
+ * fait, et le journal le dit : voir `runtime/installation.ts`, mesuré le
+ * 14 novembre 2026 — deux installations sur le même site balayaient deux fois.)
+ */
+function estProprietaire(entree: string): boolean {
+  return journalBalayage(installationProfil(), entree);
+}
 
 /**
  * Tranches enchaînées **en ligne** quand la file refuse. Deux tranches :
@@ -48,6 +58,7 @@ async function trancheEnLigne(ctx: ServiceContext, cursor: string): Promise<Swee
 }
 
 export async function incrementalSweep(): Promise<void> {
+  if (!estProprietaire('incrémental')) return;
   console.info('[placard] incremental-sweep (CQL lastModified >= dernier balayage)');
   const ctx = await getServiceContext();
   let result = await runSweep(ctx, { mode: 'incremental', scope: 'site', maxPages: INCREMENTAL_SLICE });
@@ -70,6 +81,7 @@ export async function incrementalSweep(): Promise<void> {
 }
 
 export async function fullSweep(): Promise<void> {
+  if (!estProprietaire('passe complète')) return;
   console.info('[placard] full-sweep (passe complète, priorisée par exposition)');
   // §14 : la passe complète est découpée en tranches d'espaces priorisées par
   // exposition. La liste des espaces et l'ordre exact sont à valider semaine 1
